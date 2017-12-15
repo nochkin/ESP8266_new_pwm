@@ -42,19 +42,18 @@
 #define PWM_MAX_PERIOD PWM_MAX_TICKS
 #endif
 
-#include <c_types.h>
-#include <pwm.h>
-#include <eagle_soc.h>
-#include <ets_sys.h>
-
 #ifdef FREERTOS
 
 #define ICACHE_FLASH_ATTR
-#undef __packed // will be redefined at esp8266.h > c_types.h
-#include <espressif/esp8266/eagle_soc.h>
+#include <stdint.h>
 #include <esp8266.h>
+#include <espressif/esp8266/eagle_soc.h>
+#include <espressif/esp8266/gpio_register.h>
+#include <espressif/esp8266/timer_register.h>
 #include <common_macros.h>
 #include <esp/interrupts.h>
+
+#include "new_pwm.h"
 
 #undef ETS_FRC1_INTR_ENABLE
 #define ETS_FRC1_INTR_ENABLE() _xt_isr_unmask(1<<INUM_TIMER_FRC1)
@@ -64,6 +63,15 @@
 
 #undef ETS_FRC_TIMER1_INTR_ATTACH
 #define ETS_FRC_TIMER1_INTR_ATTACH(intr_handler, args) _xt_isr_attach(INUM_TIMER_FRC1, intr_handler, NULL)
+
+#define RTC_REG_WRITE(address, value)	WRITE_PERI_REG(address, value)
+
+#else
+
+#include <c_types.h>
+#include <pwm.h>
+#include <eagle_soc.h>
+#include <ets_sys.h>
 
 #endif
 
