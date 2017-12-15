@@ -47,6 +47,26 @@
 #include <eagle_soc.h>
 #include <ets_sys.h>
 
+#ifdef FREERTOS
+
+#define ICACHE_FLASH_ATTR
+#undef __packed // will be redefined at esp8266.h > c_types.h
+#include <espressif/esp8266/eagle_soc.h>
+#include <esp8266.h>
+#include <common_macros.h>
+#include <esp/interrupts.h>
+
+#undef ETS_FRC1_INTR_ENABLE
+#define ETS_FRC1_INTR_ENABLE() _xt_isr_unmask(1<<INUM_TIMER_FRC1)
+
+#undef ETS_FRC1_INTR_DISABLE
+#define ETS_FRC1_INTR_DISABLE() _xt_isr_mask(1<<INUM_TIMER_FRC1)
+
+#undef ETS_FRC_TIMER1_INTR_ATTACH
+#define ETS_FRC_TIMER1_INTR_ATTACH(intr_handler, args) _xt_isr_attach(INUM_TIMER_FRC1, intr_handler, NULL)
+
+#endif
+
 // from SDK hw_timer.c
 #define TIMER1_DIVIDE_BY_16             0x0004
 #define TIMER1_ENABLE_TIMER             0x0080
@@ -109,8 +129,14 @@ struct timer_regs {
 };
 static struct timer_regs* timer = (struct timer_regs*)(0x60000600);
 
-static void ICACHE_RAM_ATTR
+static void
+#ifdef FREERTOS
+IRAM
+pwm_intr_handler(void *arg)
+#else
+ICACHE_RAM_ATTR
 pwm_intr_handler(void)
+#endif
 {
 	if ((pwm_state.current_set[pwm_state.current_phase].off_mask == 0) &&
 	    (pwm_state.current_set[pwm_state.current_phase].on_mask == 0)) {
@@ -179,7 +205,12 @@ pwm_init(uint32_t period, uint32_t *duty, uint32_t pwm_channel_num,
 	// PIN info: MUX-Register, Mux-Setting, PIN-Nr
 	for (n = 0; n < pwm_channels; n++) {
 		pin_info_type* pin_info = &pin_info_list[n];
+#ifdef FREERTOS
+        gpio_enable((*pin_info)[2], GPIO_OUTPUT);
+        //gpio_write((*pin_info)[2], 0);
+#else
 		PIN_FUNC_SELECT((*pin_info)[0], (*pin_info)[1]);
+#endif
 		gpio_mask[n] = 1 << (*pin_info)[2];
 		all |= 1 << (*pin_info)[2];
 		if (duty)
